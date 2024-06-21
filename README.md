@@ -4,6 +4,9 @@ This repository contains the code for training a Language Model from scratch usi
 The model is called LLUE (Efficient Update Language Model) this is based on NNUE (Efficient Neural Network Update) which is a neural network architecture used in computer chess.
 I based myself on GPT-2 and updated the input layer and methode in order to make it more efficient and faster.
 
+
+lets say the input layers is only 6 nodes: 264, 3288, 1736, 576, 374, 3 and we add a token (412) to this input (so the last one need to be remove this then becomes:) 264, 3288, 412, 576, 374, 2 understood, so the last node in the input layer indicates the first token of the input.
+
 ## Prerequisites
 
 Before running the code, make sure you have the following dependencies installed:

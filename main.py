@@ -38,14 +38,22 @@ class LLUE(tf.keras.Model):
         self.state = None
 
     def call(self, inputs):
-        input_ids, attention_mask = inputs
+        input_ids, attention_mask, new_tokens = inputs
+        num_new_tokens = tf.shape(new_tokens)[1]
+        # Remove the oldest tokens and add the new tokens
+        input_ids = tf.concat([input_ids[:, num_new_tokens:], new_tokens], axis=1)
+        # Update the last node to indicate the new starting point of the sequence
+        input_ids[:, -1] = tf.math.mod(input_ids[:, -1] + num_new_tokens, tf.shape(input_ids)[1])
+        # The attention mask should be updated in the same way
+        attention_mask = tf.concat([attention_mask[:, num_new_tokens:], tf.ones_like(new_tokens)], axis=1)
+        # rest of the function...
         if self.state is None:
             # If there's no previous state, process the entire input
             output = self.gpt2(input_ids=input_ids, attention_mask=attention_mask)
             self.state = output
         else:
             # If there's a previous state, process the new tokens and combine them with the previous state
-            new_output = self.gpt2(input_ids=input_ids[:, -self.new_tokens:], attention_mask=attention_mask[:, -self.new_tokens:])
+            new_output = self.gpt2(input_ids=input_ids[:, -num_new_tokens:], attention_mask=attention_mask[:, -num_new_tokens:])
             output = tf.concat([self.state, new_output], axis=1)
             self.state = output
         return output
