@@ -41,31 +41,37 @@ class LLUE(tf.keras.Model):
 
     def call(self, inputs):
         input_ids, attention_mask, new_tokens = inputs
-        start_index = input_ids[0, 0] 
-        if (start_index is -1):
-            # make the first element of input_ids 1 and add tokens as the rest of the input_ids
+        start_index = input_ids[0, 0]
+        if start_index == -1:
+            # Update input_ids
             input_ids = tf.concat([[1], new_tokens], axis=1)
-        if (start_index is 1 and 512 - tf.shape(input_ids)[1] > tf.shape(new_tokens)[1]):
-            # add new tokens to the end of the input_ids
-            input_ids = tf.concat([1,new_tokens, input_ids[:, 1:]], axis=1)
-        if (start_index is 1 and 512 - tf.shape(input_ids)[1] < tf.shape(new_tokens)[1]):
-            #determine the remaining space in the input_ids
+            # Update attention_mask: 1 for the new token and new_tokens, 0 for the rest
+            attention_mask = tf.concat([[1], tf.ones_like(new_tokens)], axis=1)
+        if start_index == 1 and 512 - tf.shape(input_ids)[1] > tf.shape(new_tokens)[1]:
+            # Update input_ids
+            input_ids = tf.concat([1, new_tokens, input_ids[:, 1:]], axis=1)
+            # Update attention_mask
+            attention_mask = tf.concat([[1], tf.ones_like(new_tokens), attention_mask[:, 1:]], axis=1)
+        if start_index == 1 and 512 - tf.shape(input_ids)[1] < tf.shape(new_tokens)[1]:
+            # Determine the remaining space in the input_ids
             remaining_space = 512 - tf.shape(input_ids)[1]
-            #split the new tokens into two parts with the second part having the same size as the remaining space
+            # Split the new tokens into two parts
             new_tokens_part1 = new_tokens[:, :remaining_space]
             new_tokens_part2 = new_tokens[:, remaining_space:]
-            #add the second part of the new tokens to the beginning of the input_ids
+            # Update input_ids
             new_tokens_part1_length = tf.shape(new_tokens_part1)[1]
             input_ids = tf.concat([512 - new_tokens_part1_length, new_tokens_part2, input_ids[:, 1:]], axis=1)
-            #overwrite the last elements of the input_ids with the full new_tokens_part1
             input_ids[:, -new_tokens_part1_length:] = new_tokens_part1
-        if (start_index is not 1):
-            # get the length of the new tokens
+            # Update attention_mask
+            attention_mask = tf.concat([[1] * (512 - new_tokens_part1_length), tf.ones_like(new_tokens_part2), attention_mask[:, 1:]], axis=1)
+            attention_mask[:, -new_tokens_part1_length:] = tf.ones_like(new_tokens_part1)
+        if start_index != 1:
+            # Update input_ids
             new_tokens_length = tf.shape(new_tokens)[1]
-            # replace the elements between -start_index and -start_index + new_tokens_length with the new tokens
             input_ids[:, -start_index:-start_index + new_tokens_length] = new_tokens
-            # update the start index to the new start index
             input_ids[:, 0] = -new_tokens_length
+            # Update attention_mask
+            attention_mask[:, -start_index:-start_index + new_tokens_length] = tf.ones_like(new_tokens)
 
         # num_new_tokens = tf.shape(new_tokens)[1]
         # # Remove the oldest tokens and add the new tokens
